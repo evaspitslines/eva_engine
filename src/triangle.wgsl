@@ -1,3 +1,10 @@
+struct UniformParams {
+    matrix: mat4x4<f32>
+}
+
+@group(0) @binding(0)
+var<uniform> uniform_params: UniformParams;
+
 struct VSMain {
     @location(0) position: vec2<f32>
 }
@@ -9,7 +16,7 @@ struct VSOutput {
 @vertex
 fn vs_main(input: VSMain) -> VSOutput {
     var output: VSOutput;
-    output.position = vec4<f32>(input.position, 0.0, 1.0);
+    output.position = uniform_params.matrix * vec4<f32>(input.position, 0.0, 1.0);
 
     return output;
 }

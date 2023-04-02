@@ -1,7 +1,7 @@
 use std::{mem, slice};
 use std::borrow::Cow;
-use glam::Vec2;
-use wgpu::{Buffer, BufferDescriptor, BufferSlice, BufferUsages, Device, IndexFormat, PipelineLayout, RenderPass, RenderPipeline, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
+use glam::{Mat4, Vec2, Vec3};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferDescriptor, BufferSlice, BufferUsages, Device, IndexFormat, PipelineLayout, RenderPass, RenderPipeline, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use crate::util::Vertex;
 
@@ -10,7 +10,11 @@ pub struct GeometryRenderer {
     index_buffer: Buffer,
 
     pipeline_layout: PipelineLayout,
-    pipeline: RenderPipeline
+    pipeline: RenderPipeline,
+
+    uniform_buffer: Buffer,
+    bind_group_layout: BindGroupLayout,
+    bind_group: BindGroup
 }
 
 impl GeometryRenderer {
@@ -38,9 +42,23 @@ impl GeometryRenderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("triangle.wgsl"))),
         });
 
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[],
+            bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -71,16 +89,40 @@ impl GeometryRenderer {
             multiview: None,
         });
 
+        let matrix = Mat4::from_scale(Vec3::new(2., 2., 1.));
+        let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: None,
+            contents: unsafe { slice::from_raw_parts(&matrix as *const Mat4 as *const _, mem::size_of::<Mat4>())},
+            usage: BufferUsages::UNIFORM,
+        });
+        
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::Buffer(BufferBinding {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
+
         Self {
             vertex_buffer,
             index_buffer,
             pipeline_layout,
-            pipeline
+            pipeline,
+            uniform_buffer,
+            bind_group_layout,
+            bind_group
         }
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
         render_pass.draw(0..3, 0..1);
