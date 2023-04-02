@@ -1,14 +1,19 @@
-use futures_lite::future;
-use std::borrow::Cow;
-use wgpu::{Adapter, Backends, CompositeAlphaMode, Device, Instance, InstanceDescriptor, PresentMode, Queue, RenderPipeline, RequestAdapterOptions, Surface, SurfaceConfiguration, TextureUsages, TextureViewDescriptor};
-use winit::dpi::{PhysicalSize, Size};
-use winit::event::{Event, WindowEvent};
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Window, WindowBuilder};
 use crate::geometry_renderer::GeometryRenderer;
+use futures_lite::future;
 
-const DEFAULT_WIDTH: u32 = 2560;
-const DEFAULT_HEIGHT: u32 = 1440;
+
+use wgpu::{
+    Adapter, Backends, CompositeAlphaMode, Device, Instance, InstanceDescriptor, PresentMode,
+    Queue, RequestAdapterOptions, Surface, SurfaceConfiguration, TextureUsages,
+    TextureViewDescriptor,
+};
+use winit::dpi::{PhysicalSize, Size};
+
+use winit::event_loop::{EventLoop};
+use winit::window::{Window, WindowBuilder};
+
+pub const DEFAULT_WIDTH: u32 = 2560;
+pub const DEFAULT_HEIGHT: u32 = 1440;
 
 pub struct Engine {
     window: Window,
@@ -19,7 +24,7 @@ pub struct Engine {
     queue: Queue,
     surface_config: SurfaceConfiguration,
 
-    geometry_renderer: GeometryRenderer
+    geometry_renderer: GeometryRenderer,
 }
 
 impl Engine {
@@ -59,7 +64,7 @@ impl Engine {
         ))
         .unwrap();
 
-        let mut surface_config = SurfaceConfiguration {
+        let surface_config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
             width: DEFAULT_WIDTH,
@@ -81,7 +86,7 @@ impl Engine {
             device,
             queue,
             surface_config,
-            geometry_renderer
+            geometry_renderer,
         }
     }
 
@@ -100,8 +105,9 @@ impl Engine {
         let frame = self.surface.get_current_texture().unwrap();
         let view = frame.texture.create_view(&TextureViewDescriptor::default());
 
-        let mut encoder =
-            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
@@ -121,5 +127,25 @@ impl Engine {
 
         self.queue.submit(Some(encoder.finish()));
         frame.present();
+    }
+
+    #[inline]
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
+    #[inline]
+    pub fn queue(&self) -> &Queue {
+        &self.queue
+    }
+
+    #[inline]
+    pub fn geometry_renderer(&self) -> &GeometryRenderer {
+        &self.geometry_renderer
+    }
+
+    #[inline]
+    pub fn geometry_renderer_mut(&mut self) -> &mut GeometryRenderer {
+        &mut self.geometry_renderer
     }
 }

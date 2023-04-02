@@ -1,11 +1,19 @@
-use std::{mem, slice};
-use std::borrow::Cow;
-use glam::{Mat4, Vec2, Vec3};
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferDescriptor, BufferSlice, BufferUsages, Device, IndexFormat, PipelineLayout, RenderPass, RenderPipeline, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat, VertexStepMode};
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
 use crate::util::Vertex;
+use dolly::prelude::{CameraRig, Position, RightHanded, Smooth, YawPitch};
+use glam::{Mat4, Vec3};
+use std::borrow::Cow;
+use std::{mem, slice};
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferBinding, BufferBindingType, BufferUsages, Device, IndexFormat, PipelineLayout,
+    RenderPass, RenderPipeline, ShaderStages, TextureFormat, VertexAttribute, VertexBufferLayout,
+    VertexFormat, VertexStepMode,
+};
 
 pub struct GeometryRenderer {
+    camera_rig: CameraRig<RightHanded>,
+
     vertex_buffer: Buffer,
     index_buffer: Buffer,
 
@@ -14,18 +22,31 @@ pub struct GeometryRenderer {
 
     uniform_buffer: Buffer,
     bind_group_layout: BindGroupLayout,
-    bind_group: BindGroup
+    bind_group: BindGroup,
 }
 
 impl GeometryRenderer {
     pub fn new(device: &Device, surface_format: TextureFormat) -> Self {
-        let vertices = [Vertex::new(Vec2::new(-0.5, 0.5)),
-            Vertex::new(Vec2::new(0.5, 0.5)),
-            Vertex::new(Vec2::new(-0.5, -0.5))];
+        let camera_rig = CameraRig::builder()
+            .with(Position::new(Vec3::Y))
+            .with(YawPitch::new())
+            .with(Smooth::new_position_rotation(1.0, 1.0))
+            .build();
+
+        let vertices = [
+            Vertex::new(Vec3::new(-0.5, 0.5, -2.0)),
+            Vertex::new(Vec3::new(0.5, 0.5, -2.0)),
+            Vertex::new(Vec3::new(-0.5, -0.5, -2.0)),
+        ];
 
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            contents: unsafe { slice::from_raw_parts(vertices.as_ptr() as *const _, vertices.len() * mem::size_of::<Vertex>())},
+            contents: unsafe {
+                slice::from_raw_parts(
+                    vertices.as_ptr() as *const _,
+                    vertices.len() * mem::size_of::<Vertex>(),
+                )
+            },
             usage: BufferUsages::VERTEX,
         });
 
@@ -33,7 +54,12 @@ impl GeometryRenderer {
 
         let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            contents: unsafe { slice::from_raw_parts(indices.as_ptr() as *const _, indices.len() * mem::size_of::<u32>())},
+            contents: unsafe {
+                slice::from_raw_parts(
+                    indices.as_ptr() as *const _,
+                    indices.len() * mem::size_of::<u32>(),
+                )
+            },
             usage: BufferUsages::INDEX,
         });
 
@@ -89,13 +115,15 @@ impl GeometryRenderer {
             multiview: None,
         });
 
-        let matrix = Mat4::from_scale(Vec3::new(2., 2., 1.));
+        let matrix = Mat4::IDENTITY;
         let uniform_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: None,
-            contents: unsafe { slice::from_raw_parts(&matrix as *const Mat4 as *const _, mem::size_of::<Mat4>())},
-            usage: BufferUsages::UNIFORM,
+            contents: unsafe {
+                slice::from_raw_parts(&matrix as *const Mat4 as *const _, mem::size_of::<Mat4>())
+            },
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         });
-        
+
         let bind_group = device.create_bind_group(&BindGroupDescriptor {
             label: None,
             layout: &bind_group_layout,
@@ -110,13 +138,14 @@ impl GeometryRenderer {
         });
 
         Self {
+            camera_rig,
             vertex_buffer,
             index_buffer,
             pipeline_layout,
             pipeline,
             uniform_buffer,
             bind_group_layout,
-            bind_group
+            bind_group,
         }
     }
 
@@ -126,5 +155,20 @@ impl GeometryRenderer {
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint32);
         render_pass.draw(0..3, 0..1);
+    }
+
+    #[inline]
+    pub fn uniform_buffer(&self) -> &Buffer {
+        &self.uniform_buffer
+    }
+
+    #[inline]
+    pub fn camera_rig(&self) -> &CameraRig<RightHanded> {
+        &self.camera_rig
+    }
+
+    #[inline]
+    pub fn camera_rig_mut(&mut self) -> &mut CameraRig<RightHanded> {
+        &mut self.camera_rig
     }
 }
