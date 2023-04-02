@@ -5,6 +5,7 @@ use winit::dpi::{PhysicalSize, Size};
 use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
+use crate::geometry_renderer::GeometryRenderer;
 
 const DEFAULT_WIDTH: u32 = 2560;
 const DEFAULT_HEIGHT: u32 = 1440;
@@ -17,7 +18,8 @@ pub struct Engine {
     device: Device,
     queue: Queue,
     surface_config: SurfaceConfiguration,
-    render_pipeline: RenderPipeline
+
+    geometry_renderer: GeometryRenderer
 }
 
 impl Engine {
@@ -69,35 +71,7 @@ impl Engine {
 
         surface.configure(&device, &surface_config);
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("triangle.wgsl"))),
-        });
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[],
-            push_constant_ranges: &[],
-        });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(surface_format.into())],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-        });
+        let geometry_renderer = GeometryRenderer::new(&device, surface_format);
 
         Self {
             window,
@@ -107,7 +81,7 @@ impl Engine {
             device,
             queue,
             surface_config,
-            render_pipeline
+            geometry_renderer
         }
     }
 
@@ -141,8 +115,8 @@ impl Engine {
                 })],
                 depth_stencil_attachment: None,
             });
-            rpass.set_pipeline(&self.render_pipeline);
-            rpass.draw(0..3, 0..1);
+
+            self.geometry_renderer.render(&mut rpass);
         }
 
         self.queue.submit(Some(encoder.finish()));

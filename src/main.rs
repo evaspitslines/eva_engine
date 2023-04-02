@@ -3,6 +3,8 @@ use winit::event::{Event, WindowEvent};
 use winit::event_loop::{ControlFlow, EventLoop};
 
 mod engine;
+mod geometry_renderer;
+mod util;
 
 fn main() {
     let mut event_loop = EventLoop::new();
