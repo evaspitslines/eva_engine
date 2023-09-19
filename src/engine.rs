@@ -34,7 +34,7 @@ impl Engine {
                 DEFAULT_WIDTH,
                 DEFAULT_HEIGHT,
             )))
-            .with_title("Kabul Engine")
+            .with_title("Eva Engine")
             .build(event_loop)
             .unwrap();
 
